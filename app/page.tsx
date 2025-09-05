@@ -904,7 +904,7 @@ export default function PasswordManager() {
                       </Label>
                       <Select
                         value={formData.category}
-                        onChange={(value) => setFormData({ ...formData, category: value })}
+                        onValueChange={(value) => setFormData({ ...formData, category: value })}
                       >
                         <SelectTrigger className="pm-input">
                           <SelectValue />
