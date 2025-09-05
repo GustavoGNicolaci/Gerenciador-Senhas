@@ -43,8 +43,11 @@ import {
   RefreshCw,
   Lock,
   Languages,
+  Moon,
+  Sun,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import "./password-manager.css"
 
 interface Password {
   id: string
@@ -152,6 +155,24 @@ const translations: Translations = {
     deleteConfirmation: "Tem certeza que deseja excluir a senha",
     actionUndoable: "Esta ação não pode ser desfeita.",
     delete: "Excluir",
+
+    setupMasterPassword: "Configurar Senha Mestra",
+    setupMasterPasswordDesc: "Crie uma senha mestra para proteger suas credenciais",
+    createMasterPassword: "Criar Senha Mestra",
+    confirmMasterPassword: "Confirmar Senha Mestra",
+    passwordsDoNotMatch: "As senhas não coincidem",
+    masterPasswordCreated: "Senha mestra criada",
+    setupComplete: "Configuração concluída com sucesso!",
+    darkTheme: "Tema Escuro",
+    lightTheme: "Tema Claro",
+    changeMasterPassword: "Alterar Senha Mestra",
+    changeMasterPasswordDesc: "Digite sua senha mestra atual e a nova senha para alterar.",
+    currentMasterPassword: "Senha Mestra Atual",
+    newMasterPassword: "Nova Senha Mestra",
+    confirmNewMasterPassword: "Confirmar Nova Senha Mestra",
+    enterCurrentPassword: "Digite sua senha mestra atual",
+    enterNewPassword: "Digite a nova senha mestra",
+    confirmNewPassword: "Confirme a nova senha mestra",
   },
   en: {
     // Auth
@@ -240,10 +261,29 @@ const translations: Translations = {
     deleteConfirmation: "Are you sure you want to delete the password",
     actionUndoable: "This action cannot be undone.",
     delete: "Delete",
+
+    setupMasterPassword: "Setup Master Password",
+    setupMasterPasswordDesc: "Create a master password to protect your credentials",
+    createMasterPassword: "Create Master Password",
+    confirmMasterPassword: "Confirm Master Password",
+    passwordsDoNotMatch: "Passwords do not match",
+    masterPasswordCreated: "Master password created",
+    setupComplete: "Setup completed successfully!",
+    darkTheme: "Dark Theme",
+    lightTheme: "Light Theme",
+    changeMasterPassword: "Change Master Password",
+    changeMasterPasswordDesc: "Enter your current master password and the new password to change.",
+    currentMasterPassword: "Current Master Password",
+    newMasterPassword: "New Master Password",
+    confirmNewMasterPassword: "Confirm New Master Password",
+    enterCurrentPassword: "Enter your current master password",
+    enterNewPassword: "Enter the new master password",
+    confirmNewPassword: "Confirm the new master password",
   },
 }
 
 const getCategoriesForLanguage = (lang: string) => [
+  translations[lang].allCategories,
   translations[lang].personal,
   translations[lang].work,
   translations[lang].financial,
@@ -316,6 +356,11 @@ const generateSecurePassword = (length = 16): string => {
 
 export default function PasswordManager() {
   const [language, setLanguage] = useState("pt")
+  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [isMasterPasswordSet, setIsMasterPasswordSet] = useState(false)
+  const [setupPassword, setSetupPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+
   const t = translations[language]
   const categories = getCategoriesForLanguage(language)
 
@@ -327,6 +372,10 @@ export default function PasswordManager() {
   const [selectedCategory, setSelectedCategory] = useState(t.allCategories)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [masterPassword, setMasterPassword] = useState("")
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
+  const [oldMasterPassword, setOldMasterPassword] = useState("")
+  const [newMasterPassword, setNewMasterPassword] = useState("")
+  const [confirmNewMasterPassword, setConfirmNewMasterPassword] = useState("")
   const { toast } = useToast()
 
   const [formData, setFormData] = useState({
@@ -344,6 +393,19 @@ export default function PasswordManager() {
     setSelectedCategory(translations[newLang].allCategories)
     setFormData((prev) => ({ ...prev, category: translations[newLang].personal }))
   }
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode)
+    localStorage.setItem("darkMode", (!isDarkMode).toString())
+  }
+
+  useEffect(() => {
+    const savedMasterPassword = localStorage.getItem("master_password_hash")
+    const savedTheme = localStorage.getItem("darkMode")
+
+    setIsMasterPasswordSet(!!savedMasterPassword)
+    setIsDarkMode(savedTheme === "true")
+  }, [])
 
   // Carregar dados do localStorage na inicialização
   useEffect(() => {
@@ -364,8 +426,91 @@ export default function PasswordManager() {
     localStorage.setItem("encrypted_passwords", encryptedData)
   }
 
+  const handleSetupMasterPassword = () => {
+    if (setupPassword.length < 6) {
+      toast({
+        title: t.invalidPassword,
+        description: t.passwordMinLength,
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (setupPassword !== confirmPassword) {
+      toast({
+        title: t.passwordsDoNotMatch,
+        description: t.passwordsDoNotMatch,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Simple hash simulation - in production use proper hashing
+    const passwordHash = btoa(setupPassword)
+    localStorage.setItem("master_password_hash", passwordHash)
+    setIsMasterPasswordSet(true)
+
+    toast({
+      title: t.masterPasswordCreated,
+      description: t.setupComplete,
+    })
+  }
+
+  const handleResetMasterPassword = () => {
+    const storedHash = localStorage.getItem("master_password_hash")
+    const oldPasswordHash = btoa(oldMasterPassword)
+
+    if (oldPasswordHash !== storedHash) {
+      toast({
+        title: t.invalidPassword,
+        description: language === "pt" ? "Senha mestra atual incorreta." : "Current master password is incorrect.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newMasterPassword.length < 6) {
+      toast({
+        title: t.invalidPassword,
+        description: t.passwordMinLength,
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newMasterPassword !== confirmNewMasterPassword) {
+      toast({
+        title: t.passwordsDoNotMatch,
+        description: t.passwordsDoNotMatch,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Update master password hash
+    const newPasswordHash = btoa(newMasterPassword)
+    localStorage.setItem("master_password_hash", newPasswordHash)
+
+    // Clear form and close dialog
+    setOldMasterPassword("")
+    setNewMasterPassword("")
+    setConfirmNewMasterPassword("")
+    setIsResetDialogOpen(false)
+
+    toast({
+      title: language === "pt" ? "Senha mestra alterada" : "Master password changed",
+      description:
+        language === "pt"
+          ? "Sua senha mestra foi alterada com sucesso!"
+          : "Your master password has been changed successfully!",
+    })
+  }
+
   const handleAuthentication = () => {
-    if (masterPassword.length >= 6) {
+    const storedHash = localStorage.getItem("master_password_hash")
+    const inputHash = btoa(masterPassword)
+
+    if (masterPassword.length >= 6 && inputHash === storedHash) {
       setIsAuthenticated(true)
       toast({
         title: t.accessGranted,
@@ -483,31 +628,93 @@ export default function PasswordManager() {
     strong: passwords.filter((p) => getPasswordStrength(p.password, t).score >= 80).length,
   }
 
-  if (!isAuthenticated) {
+  if (!isMasterPasswordSet) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 flex items-center justify-center p-4 transition-all duration-500">
-        <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+      <div
+        className={`password-manager-container ${isDarkMode ? "password-manager-dark" : "password-manager-light"} flex items-center justify-center p-4`}
+      >
+        <Card className="auth-card w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="flex justify-end mb-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleLanguage}
-                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-              >
+            <div className="flex justify-between items-center mb-2">
+              <Button variant="ghost" size="sm" onClick={toggleTheme} className="theme-toggle">
+                {isDarkMode ? <Sun className="w-4 h-4 mr-1" /> : <Moon className="w-4 h-4 mr-1" />}
+                {isDarkMode ? t.lightTheme : t.darkTheme}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={toggleLanguage} className="language-toggle">
                 <Languages className="w-4 h-4 mr-1" />
                 {language === "pt" ? "EN" : "PT"}
               </Button>
             </div>
-            <div className="mx-auto mb-4 w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center animate-pulse">
-              <Shield className="w-8 h-8 text-blue-600" />
+            <div className="shield-container mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center">
+              <Shield className="shield-icon w-8 h-8" />
             </div>
-            <CardTitle className="text-2xl text-blue-900">{t.passwordManager}</CardTitle>
-            <CardDescription className="text-blue-700">{t.masterPasswordDesc}</CardDescription>
+            <CardTitle className="auth-card-title text-2xl">{t.setupMasterPassword}</CardTitle>
+            <CardDescription className="auth-card-description">{t.setupMasterPasswordDesc}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="master-password" className="text-blue-800">
+              <Label htmlFor="setup-password" className="pm-label">
+                {t.createMasterPassword}
+              </Label>
+              <Input
+                id="setup-password"
+                type="password"
+                placeholder={t.enterMasterPassword}
+                value={setupPassword}
+                onChange={(e) => setSetupPassword(e.target.value)}
+                className="pm-input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password" className="pm-label">
+                {t.confirmMasterPassword}
+              </Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                placeholder={t.confirmMasterPassword}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleSetupMasterPassword()}
+                className="pm-input"
+              />
+            </div>
+            <Button onClick={handleSetupMasterPassword} className="pm-button-primary w-full">
+              <Lock className="w-4 h-4 mr-2" />
+              {t.createMasterPassword}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div
+        className={`password-manager-container ${isDarkMode ? "password-manager-dark" : "password-manager-light"} flex items-center justify-center p-4`}
+      >
+        <Card className="auth-card w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-between items-center mb-2">
+              <Button variant="ghost" size="sm" onClick={toggleTheme} className="theme-toggle">
+                {isDarkMode ? <Sun className="w-4 h-4 mr-1" /> : <Moon className="w-4 h-4 mr-1" />}
+                {isDarkMode ? t.lightTheme : t.darkTheme}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={toggleLanguage} className="language-toggle">
+                <Languages className="w-4 h-4 mr-1" />
+                {language === "pt" ? "EN" : "PT"}
+              </Button>
+            </div>
+            <div className="shield-container mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center">
+              <Shield className="shield-icon w-8 h-8" />
+            </div>
+            <CardTitle className="auth-card-title text-2xl">{t.passwordManager}</CardTitle>
+            <CardDescription className="auth-card-description">{t.masterPasswordDesc}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="master-password" className="pm-label">
                 {t.masterPassword}
               </Label>
               <Input
@@ -517,13 +724,10 @@ export default function PasswordManager() {
                 value={masterPassword}
                 onChange={(e) => setMasterPassword(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && handleAuthentication()}
-                className="border-blue-200 focus:border-blue-400 focus:ring-blue-400"
+                className="pm-input"
               />
             </div>
-            <Button
-              onClick={handleAuthentication}
-              className="w-full bg-blue-600 hover:bg-blue-700 transform hover:scale-105 transition-all duration-200"
-            >
+            <Button onClick={handleAuthentication} className="pm-button-primary w-full">
               <Lock className="w-4 h-4 mr-2" />
               {t.access}
             </Button>
@@ -534,45 +738,41 @@ export default function PasswordManager() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 transition-all duration-500">
+    <div className={`password-manager-container ${isDarkMode ? "password-manager-dark" : "password-manager-light"}`}>
       <div className="container mx-auto p-4 max-w-6xl">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center animate-pulse">
-              <Shield className="w-6 h-6 text-blue-600" />
+            <div className="shield-container w-10 h-10 rounded-lg flex items-center justify-center">
+              <Shield className="shield-icon w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-blue-900">{t.passwordManager}</h1>
-              <p className="text-sm text-blue-700">{t.secureCredentials}</p>
+              <h1 className="pm-text-primary text-2xl font-bold">{t.passwordManager}</h1>
+              <p className="pm-text-secondary text-sm">{t.secureCredentials}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleLanguage}
-              className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 bg-transparent"
-            >
+            <Button variant="outline" size="sm" onClick={toggleTheme} className="theme-toggle bg-transparent">
+              {isDarkMode ? <Sun className="w-4 h-4 mr-1" /> : <Moon className="w-4 h-4 mr-1" />}
+              {isDarkMode ? t.lightTheme : t.darkTheme}
+            </Button>
+            <Button variant="outline" size="sm" onClick={toggleLanguage} className="language-toggle bg-transparent">
               <Languages className="w-4 h-4 mr-1" />
               {language === "pt" ? "EN" : "PT"}
             </Button>
-            <Button
-              onClick={() => setIsAuthenticated(false)}
-              variant="outline"
-              size="sm"
-              className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300"
-            >
+            <Button onClick={() => setIsAuthenticated(false)} variant="outline" size="sm" className="logout-button">
               {t.logout}
             </Button>
           </div>
         </div>
 
-        <Tabs defaultValue="passwords" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-blue-100 border-blue-200">
-            <TabsTrigger value="passwords" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+        <Tabs defaultValue="passwords" className="w-full">
+          <TabsList className="pm-tabs-list grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="passwords" className="pm-tab-trigger transition-all duration-200">
+              <Key className="w-4 h-4 mr-2" />
               {t.myPasswords}
             </TabsTrigger>
-            <TabsTrigger value="security" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+            <TabsTrigger value="security" className="pm-tab-trigger transition-all duration-200">
+              <Shield className="w-4 h-4 mr-2" />
               {t.security}
             </TabsTrigger>
           </TabsList>
@@ -583,16 +783,17 @@ export default function PasswordManager() {
                 placeholder={t.searchPasswords}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 border-blue-200 focus:border-blue-400 focus:ring-blue-400"
+                className="pm-input flex-1"
               />
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full sm:w-48 border-blue-200 focus:border-blue-400 focus:ring-blue-400">
+                <SelectTrigger className="pm-input w-full sm:w-48">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={t.allCategories}>{t.allCategories}</SelectItem>
+                <SelectContent
+                  className={`pm-select-content ${isDarkMode ? "password-manager-dark" : "password-manager-light"}`}
+                >
                   {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
+                    <SelectItem key={cat} value={cat} className="pm-select-item">
                       {cat}
                     </SelectItem>
                   ))}
@@ -605,40 +806,52 @@ export default function PasswordManager() {
                       resetForm()
                       setIsDialogOpen(true)
                     }}
-                    className="bg-blue-600 hover:bg-blue-700 transform hover:scale-105 transition-all duration-200"
+                    className="pm-button-primary"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     {t.newPassword}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent
+                  className={`pm-dialog-content max-w-md ${isDarkMode ? "password-manager-dark" : "password-manager-light"}`}
+                >
                   <DialogHeader>
-                    <DialogTitle>{editingPassword ? t.editPassword : t.newPassword}</DialogTitle>
-                    <DialogDescription>Preencha as informações da credencial</DialogDescription>
+                    <DialogTitle className="pm-text-primary">
+                      {editingPassword ? t.editPassword : t.newPassword}
+                    </DialogTitle>
+                    <DialogDescription className="pm-text-secondary">
+                      Preencha as informações da credencial
+                    </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="title">{t.titleRequired}</Label>
+                      <Label htmlFor="title" className="pm-label">
+                        {t.titleRequired}
+                      </Label>
                       <Input
                         id="title"
                         placeholder={t.titlePlaceholder}
                         value={formData.title}
                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        className="border-blue-200 focus:border-blue-400 focus:ring-blue-400"
+                        className="pm-input"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="username">{t.userEmail}</Label>
+                      <Label htmlFor="username" className="pm-label">
+                        {t.userEmail}
+                      </Label>
                       <Input
                         id="username"
                         placeholder={t.userPlaceholder}
                         value={formData.username}
                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                        className="border-blue-200 focus:border-blue-400 focus:ring-blue-400"
+                        className="pm-input"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="password">{t.passwordRequired}</Label>
+                      <Label htmlFor="password" className="pm-label">
+                        {t.passwordRequired}
+                      </Label>
                       <div className="flex gap-2">
                         <Input
                           id="password"
@@ -646,7 +859,7 @@ export default function PasswordManager() {
                           placeholder={t.passwordPlaceholder}
                           value={formData.password}
                           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          className="flex-1 border-blue-200 focus:border-blue-400 focus:ring-blue-400"
+                          className="pm-input flex-1"
                         />
                         {/* Corrigindo função do botão gerador de senha no formulário */}
                         <Button
@@ -654,7 +867,7 @@ export default function PasswordManager() {
                           variant="outline"
                           size="icon"
                           onClick={() => setFormData({ ...formData, password: generateSecurePassword() })}
-                          className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                          className="theme-toggle"
                         >
                           <RefreshCw className="w-4 h-4" />
                         </Button>
@@ -664,9 +877,9 @@ export default function PasswordManager() {
                           <div className="flex items-center gap-2">
                             <Progress
                               value={getPasswordStrength(formData.password, t).score}
-                              className="flex-1 h-2 bg-blue-100"
+                              className="flex-1 h-2 password-manager-dark"
                             />
-                            <span className="text-xs font-medium text-blue-700">
+                            <span className="text-xs font-medium pm-text-secondary">
                               {getPasswordStrength(formData.password, t).feedback}
                             </span>
                           </div>
@@ -674,27 +887,33 @@ export default function PasswordManager() {
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="website">{t.website}</Label>
+                      <Label htmlFor="website" className="pm-label">
+                        {t.website}
+                      </Label>
                       <Input
                         id="website"
                         placeholder={t.websitePlaceholder}
                         value={formData.website}
                         onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                        className="border-blue-200 focus:border-blue-400 focus:ring-blue-400"
+                        className="pm-input"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="category">{t.category}</Label>
+                      <Label htmlFor="category" className="pm-label">
+                        {t.category}
+                      </Label>
                       <Select
                         value={formData.category}
-                        onValueChange={(value) => setFormData({ ...formData, category: value })}
+                        onChange={(value) => setFormData({ ...formData, category: value })}
                       >
-                        <SelectTrigger className="border-blue-200 focus:border-blue-400 focus:ring-blue-400">
+                        <SelectTrigger className="pm-input">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent
+                          className={`pm-select-content ${isDarkMode ? "password-manager-dark" : "password-manager-light"}`}
+                        >
                           {categories.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
+                            <SelectItem key={cat} value={cat} className="pm-select-item">
                               {cat}
                             </SelectItem>
                           ))}
@@ -702,25 +921,23 @@ export default function PasswordManager() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="notes">{t.notes}</Label>
+                      <Label htmlFor="notes" className="pm-label">
+                        {t.notes}
+                      </Label>
                       <Textarea
                         id="notes"
                         placeholder={t.notesPlaceholder}
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                         rows={3}
-                        className="border-blue-200 focus:border-blue-400 focus:ring-blue-400"
+                        className="pm-input"
                       />
                     </div>
                     <div className="flex gap-2 pt-4">
-                      <Button onClick={handleSavePassword} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                      <Button onClick={handleSavePassword} className="pm-button-primary flex-1">
                         {editingPassword ? t.update : t.save}
                       </Button>
-                      <Button
-                        variant="outline"
-                        onClick={resetForm}
-                        className="border-blue-200 text-blue-600 hover:bg-blue-50 bg-transparent"
-                      >
+                      <Button variant="outline" onClick={resetForm} className="theme-toggle flex-1 bg-transparent">
                         {t.cancel}
                       </Button>
                     </div>
@@ -731,15 +948,15 @@ export default function PasswordManager() {
 
             <div className="grid gap-4">
               {filteredPasswords.length === 0 ? (
-                <Card className="shadow-lg border-blue-100 bg-white/80 backdrop-blur-sm">
+                <Card className="password-card">
                   <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Key className="w-12 h-12 text-blue-400 mb-4 animate-bounce" />
-                    <h3 className="text-lg font-medium mb-2 text-blue-900">{t.noPasswordsFound}</h3>
-                    <p className="text-blue-700 text-center mb-4">
+                    <Key className="pm-text-muted w-12 h-12 mb-4 pm-bounce" />
+                    <h3 className="pm-text-primary text-lg font-medium mb-2">{t.noPasswordsFound}</h3>
+                    <p className="pm-text-secondary text-center mb-4">
                       {passwords.length === 0 ? t.startAdding : t.adjustFilters}
                     </p>
                     {passwords.length === 0 && (
-                      <Button onClick={() => setIsDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+                      <Button onClick={() => setIsDialogOpen(true)} className="pm-button-primary">
                         <Plus className="w-4 h-4 mr-2" />
                         {t.addFirstPassword}
                       </Button>
@@ -750,16 +967,13 @@ export default function PasswordManager() {
                 filteredPasswords.map((password) => {
                   const strength = getPasswordStrength(password.password, t)
                   return (
-                    <Card
-                      key={password.id}
-                      className="shadow-lg border-blue-100 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-                    >
+                    <Card key={password.id} className="password-card">
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-medium truncate text-blue-900">{password.title}</h3>
-                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                              <h3 className="font-medium truncate pm-text-primary">{password.title}</h3>
+                              <Badge variant="secondary" className="text-xs pm-badge">
                                 {password.category}
                               </Badge>
                               <div className="flex items-center gap-1">
@@ -768,24 +982,24 @@ export default function PasswordManager() {
                                 ) : (
                                   <CheckCircle className="w-4 h-4 text-blue-600" />
                                 )}
-                                <span className="text-xs text-blue-600">{strength.feedback}</span>
+                                <span className="text-xs pm-text-secondary">{strength.feedback}</span>
                               </div>
                             </div>
-                            {password.username && <p className="text-sm text-blue-700 mb-1">{password.username}</p>}
-                            {password.website && <p className="text-sm text-blue-700 mb-2">{password.website}</p>}
+                            {password.username && <p className="text-sm pm-text-secondary mb-1">{password.username}</p>}
+                            {password.website && <p className="text-sm pm-text-secondary mb-2">{password.website}</p>}
                             <div className="flex items-center gap-2">
                               <div className="flex items-center gap-1 flex-1 min-w-0">
                                 <Input
                                   type={visiblePasswords.has(password.id) ? "text" : "password"}
                                   value={password.password}
                                   readOnly
-                                  className="text-sm font-mono border-blue-200"
+                                  className="text-sm font-mono pm-input"
                                 />
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => togglePasswordVisibility(password.id)}
-                                  className="text-blue-600 hover:bg-blue-50"
+                                  className="theme-toggle"
                                 >
                                   {visiblePasswords.has(password.id) ? (
                                     <EyeOff className="w-4 h-4" />
@@ -799,7 +1013,7 @@ export default function PasswordManager() {
                                   onClick={() =>
                                     copyToClipboard(password.password, t.passwordRequired.replace(" *", ""))
                                   }
-                                  className="text-blue-600 hover:bg-blue-50"
+                                  className="theme-toggle"
                                 >
                                   <Copy className="w-4 h-4" />
                                 </Button>
@@ -822,7 +1036,7 @@ export default function PasswordManager() {
                                 })
                                 setIsDialogOpen(true)
                               }}
-                              className="text-blue-600 hover:bg-blue-50"
+                              className="theme-toggle"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -832,15 +1046,17 @@ export default function PasswordManager() {
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </AlertDialogTrigger>
-                              <AlertDialogContent>
+                              <AlertDialogContent
+                                className={`pm-dialog-content ${isDarkMode ? "password-manager-dark" : "password-manager-light"}`}
+                              >
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>{t.confirmDelete}</AlertDialogTitle>
-                                  <AlertDialogDescription>
+                                  <AlertDialogTitle className="pm-text-primary">{t.confirmDelete}</AlertDialogTitle>
+                                  <AlertDialogDescription className="pm-text-secondary">
                                     {t.deleteConfirmation} "{password.title}"? {t.actionUndoable}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+                                  <AlertDialogCancel className="theme-toggle">{t.cancel}</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => handleDeletePassword(password.id)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -861,41 +1077,119 @@ export default function PasswordManager() {
           </TabsContent>
 
           <TabsContent value="security" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card className="shadow-lg border-blue-100 bg-white/80 backdrop-blur-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="security-card">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-blue-900">
-                    <Shield className="w-5 h-5 text-blue-600" />
+                  <CardTitle className="pm-text-primary flex items-center">
+                    <Shield className="w-5 h-5 mr-2" />
                     {t.securityStats}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-blue-800">{t.totalPasswords}</span>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                  <div className="flex justify-between">
+                    <span className="pm-text-secondary">{t.totalPasswords}</span>
+                    <Badge variant="outline" className="pm-badge">
                       {securityStats.total}
                     </Badge>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-blue-800">{t.weakPasswords}</span>
-                    <Badge
-                      variant={securityStats.weak > 0 ? "destructive" : "secondary"}
-                      className={securityStats.weak === 0 ? "bg-blue-100 text-blue-700" : ""}
-                    >
-                      {securityStats.weak}
-                    </Badge>
+                  <div className="flex justify-between">
+                    <span className="pm-text-secondary">{t.weakPasswords}</span>
+                    <Badge variant="destructive">{securityStats.weak}</Badge>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-blue-800">{t.strongPasswords}</span>
-                    <Badge className="bg-blue-600 text-white">{securityStats.strong}</Badge>
+                  <div className="flex justify-between">
+                    <span className="pm-text-secondary">{t.strongPasswords}</span>
+                    <Badge className="bg-green-600 hover:bg-green-700">{securityStats.strong}</Badge>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-600">
+                    <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="theme-toggle bg-transparent"
+                          onClick={() => setIsResetDialogOpen(true)}
+                        >
+                          {t.changeMasterPassword}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent
+                        className={`pm-dialog-content ${isDarkMode ? "password-manager-dark" : "password-manager-light"}`}
+                      >
+                        <DialogHeader>
+                          <DialogTitle className="pm-text-primary">{t.changeMasterPassword}</DialogTitle>
+                          <DialogDescription className="pm-text-secondary">
+                            {t.changeMasterPasswordDesc}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="old-master-password" className="pm-label">
+                              {t.currentMasterPassword}
+                            </Label>
+                            <Input
+                              id="old-master-password"
+                              type="password"
+                              placeholder={t.enterCurrentPassword}
+                              value={oldMasterPassword}
+                              onChange={(e) => setOldMasterPassword(e.target.value)}
+                              className="pm-input"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="new-master-password" className="pm-label">
+                              {t.newMasterPassword}
+                            </Label>
+                            <Input
+                              id="new-master-password"
+                              type="password"
+                              placeholder={t.enterNewPassword}
+                              value={newMasterPassword}
+                              onChange={(e) => setNewMasterPassword(e.target.value)}
+                              className="pm-input"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="confirm-new-master-password" className="pm-label">
+                              {t.confirmNewMasterPassword}
+                            </Label>
+                            <Input
+                              id="confirm-new-master-password"
+                              type="password"
+                              placeholder={t.confirmNewPassword}
+                              value={confirmNewMasterPassword}
+                              onChange={(e) => setConfirmNewMasterPassword(e.target.value)}
+                              onKeyPress={(e) => e.key === "Enter" && handleResetMasterPassword()}
+                              className="pm-input"
+                            />
+                          </div>
+                          <div className="flex gap-2 pt-4">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setIsResetDialogOpen(false)
+                                setOldMasterPassword("")
+                                setNewMasterPassword("")
+                                setConfirmNewMasterPassword("")
+                              }}
+                              className="flex-1 theme-toggle"
+                            >
+                              {t.cancel}
+                            </Button>
+                            <Button onClick={handleResetMasterPassword} className="flex-1 pm-button-primary">
+                              {language === "pt" ? "Alterar Senha" : "Change Password"}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-lg border-blue-100 bg-white/80 backdrop-blur-sm">
+              <Card className="password-card">
                 <CardHeader>
-                  <CardTitle className="text-blue-900">{t.passwordGenerator}</CardTitle>
-                  <CardDescription className="text-blue-700">{t.generateSecurePasswords}</CardDescription>
+                  <CardTitle className="pm-text-primary">{t.passwordGenerator}</CardTitle>
+                  <CardDescription className="pm-text-secondary">{t.generateSecurePasswords}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Button
@@ -903,12 +1197,12 @@ export default function PasswordManager() {
                       const newPassword = generateSecurePassword()
                       copyToClipboard(newPassword, t.passwordRequired.replace(" *", ""))
                     }}
-                    className="w-full bg-blue-600 hover:bg-blue-700 transform hover:scale-105 transition-all duration-200"
+                    className="pm-button-primary w-full"
                   >
                     <RefreshCw className="w-4 h-4 mr-2" />
                     {t.generateNewPassword}
                   </Button>
-                  <div className="text-sm text-blue-700">
+                  <div className="pm-text-secondary text-sm">
                     <p>{t.minChars}</p>
                     <p>{t.includesAll}</p>
                     <p>{t.randomGenerated}</p>
